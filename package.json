@@ -1,0 +1,26 @@
+{
+  "name": "loopback-ds-tree-mixin",
+  "version": "0.0.1",
+  "description": "Create a tree out of a loopback model",
+  "main": "index.js",
+  "keywords": [
+    "loopback",
+    "Tree",
+    "Ancenstor",
+    "mixin"
+  ],
+  "author": "Michael Bouclas <mbouclas@gmail.com> (http://net-tomorrow.com/)",
+  "license": "MIT",
+  "scripts": {
+    "watch": "watchify ./admin/cms/index.js -o ./admin/cms-compiled.js -v",
+    "minify": "uglifyjs ./admin/cms-compiled.js --compress --mangle -o ./admin/cms-compiled.min.js"
+  },
+  "homepage": "https://github.com/mbouclas/loopback-ds-tree-mixin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mbouclas/loopback-ds-tree-mixin.git"
+  },
+  "dependencies": {
+    "lodash": "^4.8.2"
+  }
+}
