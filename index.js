@@ -16,12 +16,12 @@ function Tree(Model, config) {
      */
     Model.asTree = function (parent, options, callback) {
         var ParentID;
-        if (arguments.length == 3 && typeof arguments[1] == 'object'){
+        if (arguments.length == 3 && typeof arguments[1] == 'object') {
             callback = arguments[2];
-        } else if (arguments.length == 3){
+        } else if (arguments.length == 3) {
             callback = arguments[2];
             options = arguments[1] = {};
-        } else if (arguments.length == 2){
+        } else if (arguments.length == 2) {
             callback = arguments[1];
         }
 
@@ -33,22 +33,22 @@ function Tree(Model, config) {
             //we need to first find the actual id and then create a query
             return Model.findOne({where: parent})
                 .then(function (Parent) {
-                     return Model.find({where : {ancestors: Parent.id}})
+                    return Model.find({where: {ancestors: Parent.id}})
                         .then(function (docs) {
 
-                            var tree = toTree(docs,options);
+                            var tree = toTree(docs, options);
 
-                            if (options.withParent){
+                            if (options.withParent) {
                                 Parent.children = tree;
-                                if (typeof callback == 'function'){
-                                    callback(null,Parent);
+                                if (typeof callback == 'function') {
+                                    callback(null, Parent);
                                 }
 
                                 return Parent;
                             }
 
-                            if (typeof callback == 'function'){
-                                callback(null,tree);
+                            if (typeof callback == 'function') {
+                                callback(null, tree);
                             }
 
                             return tree;
@@ -59,9 +59,9 @@ function Tree(Model, config) {
 
         return Model.find({where: {ancestors: ParentID}})
             .then(function (docs) {
-                var tree = toTree(docs,options);
-                if (typeof callback == 'function'){
-                    callback(null,tree);
+                var tree = toTree(docs, options);
+                if (typeof callback == 'function') {
+                    callback(null, tree);
                 }
                 return tree;
             })
@@ -74,25 +74,41 @@ function Tree(Model, config) {
         if (typeof parent == 'string') {//Hoping on an id
             where.id = parent;
         } else if (typeof parent.id != 'undefined') {//this is the actual parent model
-            return create(node,parent);
+            return create(node, parent).then(function (res) {
+                if (typeof callback == 'function') {
+                    callback(null, res);
+                }
+
+                return res;
+            });
         } else if (typeof parent === 'object' && typeof parent.id == 'undefined') {//this is a query
             where = parent;
         }
 
         return Model.findOne({where: where}).then(function (Parent) {
-                return create(node,Parent);
+            return create(node, Parent).then(function (res) {
+                if (typeof callback == 'function') {
+                    callback(null, res);
+                }
+
+                return res;
             });
+        });
     };
 
-    function create(node,Parent) {
+    Model.deleteNode = function (node, options, callback) {
+
+    };
+
+    function create(node, Parent) {
         node.ancestors = createAncestorsArray(Parent);
         node.parent = Parent.id;
-        
+
         return Model.create(node);
     }
 
-    function toTree(docs,options) {
-        if (typeof options == 'undefined'){
+    function toTree(docs, options) {
+        if (typeof options == 'undefined') {
             options = {};
         }
 
@@ -134,10 +150,10 @@ function Tree(Model, config) {
             for (var a in found) {
                 var item = lo.find(tree, {id: found[a].parent});
                 //format this item, add - remove - change properties
-                if (typeof options.formatter == 'function'){
+                if (typeof options.formatter == 'function') {
                     item = options.formatter(item);
                 }
-                
+
                 if (item) {
                     if (!item.children) {
                         item.children = [];
@@ -170,15 +186,15 @@ function Tree(Model, config) {
         return ancestors
     }
 
-/*    Model.observe('before save', function event(ctx, next) {
-        //add ancestors + parent if not there
-        if (ctx.instance) { //update
-            if (ctx.instance.id) {
+    /*    Model.observe('before save', function event(ctx, next) {
+     //add ancestors + parent if not there
+     if (ctx.instance) { //update
+     if (ctx.instance.id) {
 
-            }
-        }
-        //create
-    });*/
+     }
+     }
+     //create
+     });*/
 
     Model.remoteMethod('asTree', {
         accepts: [{
@@ -186,7 +202,7 @@ function Tree(Model, config) {
             type: 'object',
             required: true,
             http: {
-                source : 'query'
+                source: 'query'
             }
         },
             {
@@ -194,7 +210,7 @@ function Tree(Model, config) {
                 type: 'object',
                 required: false,
                 http: {
-                    source : 'query'
+                    source: 'query'
                 }
             }],
         returns: {
@@ -214,7 +230,7 @@ function Tree(Model, config) {
             type: 'object',
             required: true,
             http: {
-                source : 'query'
+                source: 'query'
             }
         },
             {
@@ -222,7 +238,7 @@ function Tree(Model, config) {
                 type: 'object',
                 required: true,
                 http: {
-                    source : 'query'
+                    source: 'query'
                 }
             }],
         returns: {
@@ -233,6 +249,34 @@ function Tree(Model, config) {
         http: {
             path: '/addNode',
             verb: 'put'
+        }
+    });
+
+    Model.remoteMethod('deleteNode', {
+        accepts: [{
+            arg: 'node',
+            type: 'object',
+            required: true,
+            http: {
+                source: 'query'
+            }
+        },
+            {
+                arg: 'options',
+                type: 'object',
+                required: false,
+                http: {
+                    source: 'query'
+                }
+            }],
+        returns: {
+            arg: 'result',
+            type: 'string',
+            root: true
+        },
+        http: {
+            path: '/deleteNode',
+            verb: 'delete'
         }
     });
 }
