@@ -134,7 +134,69 @@ Category.asTree('5616204f1c6a443c256c7a2f',{returnEverything:true})
 });
 ```
 
-# API
-The mixin adds a `/asTree` end point to your model. I takes 2 parameters,
+### API
+The mixin adds a `/asTree` end point to your model. It takes 2 parameters,
 the parent query (`{"category":"Books"}`) and the options object.
 Only the parent query is required
+
+# Adding nodes
+To add a node you need to provide the parent and the node.
+
+```javascript
+//Example providing a query object as parent
+var Category = app.models.Category;
+  Category.addNode({permalink: 'a-category'},
+    {
+      category : 'A sub category',
+      permalink : 'a-sub-category',
+      active : true
+    })
+    .then(function (newItem) {
+      console.log(newItem);
+    })
+    .catch(function (err) {
+      console.log('Err', err);
+    });
+```
+
+Again, you can provide an object, a string or a loopback model as a
+parent, just like the `asTree()` method.
+
+```javascript
+//Example providing a string ID as parent
+var Category = app.models.Category;
+  Category.addNode('5616204f1c6a443c256c7a2f',
+    {
+      category : 'A sub category',
+      permalink : 'a-sub-category',
+      active : true
+    })
+    .then(function (newItem) {
+      console.log(newItem);
+    })
+    .catch(function (err) {
+      console.log('Err', err);
+    });
+```
+
+```javascript
+//Example providing a loopback model as parent
+var Category = app.models.Category;
+Category.findOne({where : {category : 'Books'}})
+.then(function(Parent) {
+  Category.addNode(Parent,
+    {
+      category : 'A sub category',
+      permalink : 'a-sub-category',
+      active : true
+    })
+    .then(function (newItem) {
+      console.log(newItem);
+    })
+});
+```
+
+### API
+The mixin adds a `/addNode` end point to your model. It takes 2 parameters,
+the parent query (`{"category":"Books"}`) and the new node object.
+Both parameters are required

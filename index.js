@@ -68,27 +68,28 @@ function Tree(Model, config) {
             .catch(handleErr);
     };
 
-    Model.addNode = function (Parent, node) {
+    Model.addNode = function (parent, node, callback) {
         //if the Parent is a query instead of a model
-        if (typeof Parent.where != 'undefined') {
-
+        var where = {};
+        if (typeof parent == 'string') {//Hoping on an id
+            where.id = parent;
+        } else if (typeof parent.id != 'undefined') {//this is the actual parent model
+            return create(node,parent);
+        } else if (typeof parent === 'object' && typeof parent.id == 'undefined') {//this is a query
+            where = parent;
         }
 
-        Model.findOne({where: {permalink: 'f15a'}}).then(function (Parent) {
-                Model.create({
-                    category: 'a category',
-                    ancestors: createAncestorsArray(Parent)
-                }).then(function (res) {
-                        console.log(res)
-                    })
-                    .catch(function (err) {
-                        console.log(err)
-                    })
-            })
-            .catch(function (err) {
-                console.log(err.stack)
+        return Model.findOne({where: where}).then(function (Parent) {
+                return create(node,Parent);
             });
     };
+
+    function create(node,Parent) {
+        node.ancestors = createAncestorsArray(Parent);
+        node.parent = Parent.id;
+        
+        return Model.create(node);
+    }
 
     function toTree(docs,options) {
         if (typeof options == 'undefined'){
@@ -169,7 +170,7 @@ function Tree(Model, config) {
         return ancestors
     }
 
-    Model.observe('before save', function event(ctx, next) {
+/*    Model.observe('before save', function event(ctx, next) {
         //add ancestors + parent if not there
         if (ctx.instance) { //update
             if (ctx.instance.id) {
@@ -177,7 +178,7 @@ function Tree(Model, config) {
             }
         }
         //create
-    });
+    });*/
 
     Model.remoteMethod('asTree', {
         accepts: [{
@@ -192,6 +193,34 @@ function Tree(Model, config) {
                 arg: 'options',
                 type: 'object',
                 required: false,
+                http: {
+                    source : 'query'
+                }
+            }],
+        returns: {
+            arg: 'result',
+            type: 'string',
+            root: true
+        },
+        http: {
+            path: '/asTree',
+            verb: 'get'
+        }
+    });
+
+    Model.remoteMethod('addNode', {
+        accepts: [{
+            arg: 'parent',
+            type: 'object',
+            required: true,
+            http: {
+                source : 'query'
+            }
+        },
+            {
+                arg: 'node',
+                type: 'object',
+                required: true,
                 http: {
                     source : 'query'
                 }
