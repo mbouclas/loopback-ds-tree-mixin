@@ -231,8 +231,8 @@ function Tree(Model, config) {
             root: true
         },
         http: {
-            path: '/asTree',
-            verb: 'get'
+            path: '/addNode',
+            verb: 'put'
         }
     });
 }
