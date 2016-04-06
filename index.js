@@ -36,14 +36,14 @@ function Tree(Model, config) {
                         if (options.withParent) {
                             Parent.children = tree;
                             if (typeof callback == 'function') {
-                                callback(null, Parent);
+                                callback(null, {result : tree});
                             }
 
                             return Parent;
                         }
 
                         if (typeof callback == 'function') {
-                            callback(null, tree);
+                            callback(null, {result : tree});
                         }
 
                         return tree;
@@ -319,7 +319,8 @@ function Tree(Model, config) {
                 }
             }],
         returns: {
-            type: 'array',
+            arg: 'result',
+            type: 'object',
             root: true
         },
         http: {
