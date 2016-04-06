@@ -200,3 +200,33 @@ Category.findOne({where : {category : 'Books'}})
 The mixin adds a `/addNode` end point to your model. It takes 2 parameters,
 the parent query (`{"category":"Books"}`) and the new node object.
 Both parameters are required
+
+# Deleting nodes
+You can safely delete a node via the `deleteNode` method. By safely
+we mean that you can be sure that the children will be handled accordingly.
+If a node has X amount of children, and you just delete it via the
+loopback API, then all the children still point to that parent. By using
+the `deleteNode` method, you ensure that these children will become
+orphaned so that you can take care of them later on as you please.
+You can also delete the parent along with the children in one call
+by adding the `withChildren` option.
+Just as above, you can locate the node you want to delete either
+as an ID string, a loopback query or a loopback model.
+
+```javascript
+//Default operation. all children will become orphaned
+//set withChildren to true to delete the children along with the parent
+var Category = app.models.Category;
+Category.deleteNode({category : 'Books'},{withChildren:false})
+.then(function(result) {
+    //True if all went well
+})
+.catch(function(err){
+
+});
+```
+
+### API
+The mixin adds a `/deleteNode` end point to your model. It takes 2 parameters,
+the node query (`{"category":"Books"}`) and the options object.
+Only the first parameter is required

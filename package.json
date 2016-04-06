@@ -1,6 +1,6 @@
 {
   "name": "loopback-ds-tree-mixin",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Create a tree out of a loopback model",
   "main": "index.js",
   "keywords": [
@@ -21,6 +21,7 @@
     "url": "https://github.com/mbouclas/loopback-ds-tree-mixin.git"
   },
   "dependencies": {
+    "bluebird": "^3.3.4",
     "lodash": "^4.8.2"
   }
 }

@@ -1,4 +1,5 @@
-var lo = require('lodash');
+var lo = require('lodash'),
+    Promise = require('bluebird');
 
 function Tree(Model, config) {
     Model.defineProperty('ancestors', {type: [{type: Object}], required: true});
@@ -15,7 +16,64 @@ function Tree(Model, config) {
      * @returns {*}
      */
     Model.asTree = function (parent, options, callback) {
-        var ParentID;
+        if (arguments.length == 3 && typeof arguments[1] == 'object') {
+            callback = arguments[2];
+        } else if (arguments.length == 3) {
+            callback = arguments[2];
+            options = arguments[1] = {};
+        } else if (arguments.length == 2 && typeof arguments[1] == 'function') {
+            callback = arguments[1];
+        } else if (arguments.length == 1){
+            options = {};
+        }
+
+        return locateNode(parent)
+            .then(function (Parent) {
+                return Model.find({where: {ancestors: Parent.id}})
+                    .then(function (docs) {
+                        var tree = toTree(docs, options);
+
+                        if (options.withParent) {
+                            Parent.children = tree;
+                            if (typeof callback == 'function') {
+                                callback(null, Parent);
+                            }
+
+                            return Parent;
+                        }
+
+                        if (typeof callback == 'function') {
+                            callback(null, tree);
+                        }
+
+                        return tree;
+                    });
+            })
+            .catch(handleErr);
+    };
+
+    Model.addNode = function (parent, node, callback) {
+
+        return locateNode(parent)
+            .then(function (Parent) {
+                return create(node, Parent).then(function (res) {
+                    if (typeof callback == 'function') {
+                        callback(null, res);
+                    }
+
+                    return res;
+                });
+            });
+    };
+
+    Model.moveNode = function (node, options, callback) {
+        /*
+        * After saving, check if the parent has changed, If it has, then we need to re-arrange the children ancestors
+         * based on the new parent. EZ-PZ
+        */
+    };
+
+    Model.deleteNode = function (node, options, callback) {
         if (arguments.length == 3 && typeof arguments[1] == 'object') {
             callback = arguments[2];
         } else if (arguments.length == 3) {
@@ -24,81 +82,67 @@ function Tree(Model, config) {
         } else if (arguments.length == 2) {
             callback = arguments[1];
         }
+        /*
+         Things to consider :
+         1. Before deleting the node, we need to orphan any children it might have
+         2. If the option deleteWithChildren is provided then delete everything
+         */
 
-        if (typeof parent == 'string') {//Hoping on an id
-            ParentID = parent;
-        } else if (typeof parent.id != 'undefined') {//this is the actual parent model
-            ParentID = parent.id;
-        } else if (typeof parent === 'object' && typeof parent.id == 'undefined') {//this is a query
-            //we need to first find the actual id and then create a query
-            return Model.findOne({where: parent})
-                .then(function (Parent) {
-                    return Model.find({where: {ancestors: Parent.id}})
-                        .then(function (docs) {
+        return locateNode(node)
+            .then(function (nodeToDelete) {
+                var myId = nodeToDelete.id;
+                //find all children that belong to this node
+                return Model.find({where : {ancestors : myId}})
+                    .then(orphanChildren)
+                    .then(deleteNode.bind(null,myId))
+                    .then(function () {
+                        if (typeof callback == 'function'){
+                            callback(null,true);
+                        }
 
-                            var tree = toTree(docs, options);
-
-                            if (options.withParent) {
-                                Parent.children = tree;
-                                if (typeof callback == 'function') {
-                                    callback(null, Parent);
-                                }
-
-                                return Parent;
-                            }
-
-                            if (typeof callback == 'function') {
-                                callback(null, tree);
-                            }
-
-                            return tree;
-                        })
-                        .catch(handleErr);
-                })
-        }
-
-        return Model.find({where: {ancestors: ParentID}})
-            .then(function (docs) {
-                var tree = toTree(docs, options);
-                if (typeof callback == 'function') {
-                    callback(null, tree);
-                }
-                return tree;
+                        return true;
+                    })
             })
-            .catch(handleErr);
-    };
-
-    Model.addNode = function (parent, node, callback) {
-        //if the Parent is a query instead of a model
-        var where = {};
-        if (typeof parent == 'string') {//Hoping on an id
-            where.id = parent;
-        } else if (typeof parent.id != 'undefined') {//this is the actual parent model
-            return create(node, parent).then(function (res) {
-                if (typeof callback == 'function') {
-                    callback(null, res);
+            .catch(function (err) {
+                if (typeof callback == 'function'){
+                    callback(err);
                 }
 
-                return res;
+                return false;
             });
-        } else if (typeof parent === 'object' && typeof parent.id == 'undefined') {//this is a query
-            where = parent;
+
+        function orphanChildren(children) {
+            var tasks = [];
+
+            for (var i in children){
+                tasks.push((function (child) {
+                    if (options.withChildren){
+                        return Model.destroyById(child.id);
+                    }
+
+                    child.ancestors = [];//orphan it
+                    child.parent = null;
+                    return child.save();
+                })(children[i]));
+            }
+
+            return Promise.all(tasks);
+        }
+    };
+
+    function locateNode(node) {
+        var where = {};
+        if (typeof node == 'string') {//Hoping on an id
+            where.id = node;
+        }
+        else if (typeof node.id != 'undefined') {//this is the actual node model
+            return Promise.resolve(node);
+        } else if (typeof node === 'object' && typeof node.id == 'undefined') {//this is a query
+            where = node;
         }
 
-        return Model.findOne({where: where}).then(function (Parent) {
-            return create(node, Parent).then(function (res) {
-                if (typeof callback == 'function') {
-                    callback(null, res);
-                }
-
-                return res;
-            });
-        });
-    };
-
-    Model.deleteNode = function (node, options, callback) {
-
-    };
+        return Model.findOne({where: where});
+    }
 
     function create(node, Parent) {
         node.ancestors = createAncestorsArray(Parent);
@@ -167,6 +211,10 @@ function Tree(Model, config) {
         return (options.returnEverything) ? {tree: newTree, flat: tree} : newTree;
     }
 
+    function deleteNode(nodeID) {
+        return Model.destroyById(nodeID);
+    }
+
     function handleErr(err) {
         return err;
     }
@@ -187,6 +235,17 @@ function Tree(Model, config) {
     }
 
     /*    Model.observe('before save', function event(ctx, next) {
+     //add ancestors + parent if not there
+     if (ctx.instance) { //update
+     if (ctx.instance.id) {
+
+     }
+     }
+     //create
+     });*/
+
+    /*    Model.observe('after delete', function event(ctx, next) {
+    //orphan children cause the parent is gone
      //add ancestors + parent if not there
      if (ctx.instance) { //update
      if (ctx.instance.id) {
@@ -221,7 +280,8 @@ function Tree(Model, config) {
         http: {
             path: '/asTree',
             verb: 'get'
-        }
+        },
+        description : "Returns a tree for this model"
     });
 
     Model.remoteMethod('addNode', {
@@ -249,7 +309,37 @@ function Tree(Model, config) {
         http: {
             path: '/addNode',
             verb: 'put'
-        }
+        },
+        description : "Add a node to the tree model"
+    });
+
+    Model.remoteMethod('moveNode', {
+        accepts: [{
+            arg: 'parent',
+            type: 'object',
+            required: true,
+            http: {
+                source: 'query'
+            }
+        },
+            {
+                arg: 'node',
+                type: 'object',
+                required: true,
+                http: {
+                    source: 'query'
+                }
+            }],
+        returns: {
+            arg: 'result',
+            type: 'string',
+            root: true
+        },
+        http: {
+            path: '/moveNode',
+            verb: 'post'
+        },
+        description : "Update a tree node"
     });
 
     Model.remoteMethod('deleteNode', {
@@ -277,7 +367,8 @@ function Tree(Model, config) {
         http: {
             path: '/deleteNode',
             verb: 'delete'
-        }
+        },
+        description : "Delete a tree node"
     });
 }
 
