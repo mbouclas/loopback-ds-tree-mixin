@@ -230,3 +230,27 @@ Category.deleteNode({category : 'Books'},{withChildren:false})
 The mixin adds a `/deleteNode` end point to your model. It takes 2 parameters,
 the node query (`{"category":"Books"}`) and the options object.
 Only the first parameter is required
+
+# Moving nodes
+Moving a node consists of the following actions :
+* Find the node
+* Find the parent
+* Make the node a child of the parent
+* Update all (if any) of the nodes children to the new path
+
+```javascript
+var Category = app.models.Category;
+//move category sci-fi under the category books
+Category.moveNode({permalink: 'sci-fi'},{permalink: 'Books'})
+.then(function(result) {
+    //get the sci-fi category back with the path updated
+})
+.catch(function(err){
+
+});
+```
+
+### API
+The mixin adds a `/moveNode` end point to your model. It takes 2 parameters,
+the node query (`{"category":"Books"}`) and the parent query object (same as node).
+Both parameters are required

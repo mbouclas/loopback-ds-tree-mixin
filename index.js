@@ -66,11 +66,57 @@ function Tree(Model, config) {
             });
     };
 
-    Model.moveNode = function (node, options, callback) {
+    Model.moveNode = function (node, newParent, callback) {
         /*
-        * After saving, check if the parent has changed, If it has, then we need to re-arrange the children ancestors
-         * based on the new parent. EZ-PZ
-        */
+        * 1. locate the node
+        * 2. locate the parent
+        * 3. attach node to the parent
+        * 4. re-arrange the ancestors for the node's children
+        * */
+        if (arguments.length == 3 && typeof arguments[1] == 'object') {
+            callback = arguments[2];
+        } else if (arguments.length == 3) {
+            callback = arguments[2];
+            options = arguments[1] = {};
+        } else if (arguments.length == 2) {
+            callback = arguments[1];
+        }
+        var tasks = {
+            child : locateNode(node),
+            parent : locateNode(newParent)
+        };
+
+        return Promise.props(tasks)
+            .then(function (results) {
+                results.child.parent = results.parent.id;
+                results.child.ancestors = results.parent.ancestors;
+                results.child.ancestors.push(results.parent.id);
+                return results;
+            })
+            .then(function (results) {
+                //find the children
+                return Model.find({where : {ancestors : results.child.id}})
+                    .then(function (children) {
+                        if (children.length == 0){
+                            return results;
+                        }
+
+                        var tasks = [];
+                        lo.forEach(children,function (child) {
+                            child.ancestors = results.child.ancestors;
+                            child.ancestors.push(results.child.id);
+                            tasks.push(child.save());
+                        });
+
+                        return Promise.all(tasks)
+                            .then(function () {
+                                return results;
+                            });
+                    });
+            })
+            .then(function (results) {
+                return results.child.save();
+            });
     };
 
     Model.deleteNode = function (node, options, callback) {
@@ -315,7 +361,7 @@ function Tree(Model, config) {
 
     Model.remoteMethod('moveNode', {
         accepts: [{
-            arg: 'parent',
+            arg: 'node',
             type: 'object',
             required: true,
             http: {
@@ -323,7 +369,7 @@ function Tree(Model, config) {
             }
         },
             {
-                arg: 'node',
+                arg: 'parent',
                 type: 'object',
                 required: true,
                 http: {
@@ -339,7 +385,7 @@ function Tree(Model, config) {
             path: '/moveNode',
             verb: 'post'
         },
-        description : "Update a tree node"
+        description : "Move a tree node"
     });
 
     Model.remoteMethod('deleteNode', {
