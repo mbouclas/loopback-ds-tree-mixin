@@ -319,8 +319,7 @@ function Tree(Model, config) {
                 }
             }],
         returns: {
-            arg: 'result',
-            type: 'string',
+            type: 'array',
             root: true
         },
         http: {
