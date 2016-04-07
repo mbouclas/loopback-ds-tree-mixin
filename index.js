@@ -23,7 +23,7 @@ function Tree(Model, config) {
             options = arguments[1] = {};
         } else if (arguments.length == 2 && typeof arguments[1] == 'function') {
             callback = arguments[1];
-        } else if (arguments.length == 1){
+        } else if (arguments.length == 1 || arguments.length == 0){
             options = {};
         }
 
@@ -31,6 +31,7 @@ function Tree(Model, config) {
             .then(function (Parent) {
                 return Model.find({where: {ancestors: Parent.id}})
                     .then(function (docs) {
+
                         var tree = toTree(docs, options);
 
                         if (options.withParent) {
@@ -177,9 +178,13 @@ function Tree(Model, config) {
     };
 
     function locateNode(node) {
+
         var where = {};
         if (typeof node == 'string') {//Hoping on an id
             where.id = node;
+        }
+        else if (typeof node == 'undefined' ||(typeof node == 'object' && lo.isEmpty(node))){
+            return Promise.resolve({id : []});
         }
         else if (typeof node.id != 'undefined') {//this is the actual node model
             return Promise.resolve(node);
