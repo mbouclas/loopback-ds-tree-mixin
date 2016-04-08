@@ -344,7 +344,12 @@ function Tree(Model, config) {
         for (var i in tree) {
             if (!tree[i].ancestors) {
                 tree[i].depth = 0;
+                tree[i].ancestors = [];
                 continue;
+            }
+
+            if (!tree[i].children){
+                tree[i].children = [];
             }
 
             tree[i].depth = tree[i].ancestors.length;
