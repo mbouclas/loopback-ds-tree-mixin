@@ -254,3 +254,40 @@ Category.moveNode({permalink: 'sci-fi'},{permalink: 'Books'})
 The mixin adds a `/moveNode` end point to your model. It takes 2 parameters,
 the node query (`{"category":"Books"}`) and the parent query object (same as node).
 Both parameters are required
+
+# Saving a json tree
+In some cases you might need to update the entire tree based on a json
+representation. Maybe your front-end sends the json of the tree after
+the user has finished re-ordering it. Assuming that the tree is formed
+more or less as it is in your model, and that the children nodes live
+in a `children` array, you can pass this json and the mixin will update
+your DB accordingly.
+
+### Notes
+* ONLY parent - ancestors are updated. Updating other properties is risky
+when considering that every model is different.
+* On a front-end we usually show just a part of the tree, root nodes are
+ hidden from the user in most cases. If that is true, then you need to
+ pass the option prependRoot to the method (as usually, can be a query, stringID or model).
+ If you don't do this, then the tree will break
+ * This is feature is not 100% solid. It worked on many test cases but
+ as most front-end plugins transform the JSON they produce, there might
+ be several cases where this fails.
+
+```javascript
+var Category = app.models.Category;
+//req.body.tree is the JSON representation
+//req.body.prependRoot is the root i want to append
+Category.saveJsonTree(req.body.tree,{prependRoot : req.body.prependRoot || false})
+      .then(function (result) {
+        res.send(result);
+      })
+      .catch(function (err) {
+
+      });
+```
+
+### API
+The mixin adds a `/saveJsonTree` end point to your model. It takes 2 parameters,
+the JSON tree (valid Array tree) and the options object.
+Only the first parameter is required.

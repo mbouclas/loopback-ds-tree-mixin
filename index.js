@@ -2,14 +2,18 @@ var lo = require('lodash'),
     Promise = require('bluebird');
 
 function Tree(Model, config) {
+    var _this = this;
+    var DS = Model.getDataSource();
+    _this.toObjectID = DS.ObjectID || null;
+
     Model.defineProperty('ancestors', {type: [{type: Object}], required: true});
-    Model.defineProperty('parent', {type: Object, required: false});
+    Model.defineProperty('parent', {type: "object", required: false});
     Model.defineProperty('children', {type: [{type: Object}], required: false});
     Model.defineProperty('depth', {type: Number, required: false});
     Model.defineProperty('orderBy', {type: Number, required: false});
 
     /**
-     *
+     * Create a tree from the database table
      * @param {object} parent
      * @param {object} options
      * @param {function} callback
@@ -23,13 +27,13 @@ function Tree(Model, config) {
             options = arguments[1] = {};
         } else if (arguments.length == 2 && typeof arguments[1] == 'function') {
             callback = arguments[1];
-        } else if (arguments.length == 1 || arguments.length == 0){
+        } else if (arguments.length == 1 || arguments.length == 0) {
             options = {};
         }
 
         return locateNode(parent)
             .then(function (Parent) {
-                return Model.find({where: {ancestors: Parent.id}})
+                return Model.find({where: {ancestors: Parent.id}, order: 'orderBy ASC'})
                     .then(function (docs) {
 
                         var tree = toTree(docs, options);
@@ -37,14 +41,14 @@ function Tree(Model, config) {
                         if (options.withParent) {
                             Parent.children = tree;
                             if (typeof callback == 'function') {
-                                callback(null, {result : tree});
+                                callback(null, {result: tree});
                             }
 
                             return Parent;
                         }
 
                         if (typeof callback == 'function') {
-                            callback(null, {result : tree});
+                            callback(null, {result: tree});
                         }
 
                         return tree;
@@ -69,11 +73,11 @@ function Tree(Model, config) {
 
     Model.moveNode = function (node, newParent, callback) {
         /*
-        * 1. locate the node
-        * 2. locate the parent
-        * 3. attach node to the parent
-        * 4. re-arrange the ancestors for the node's children
-        * */
+         * 1. locate the node
+         * 2. locate the parent
+         * 3. attach node to the parent
+         * 4. re-arrange the ancestors for the node's children
+         * */
         if (arguments.length == 3 && typeof arguments[1] == 'object') {
             callback = arguments[2];
         } else if (arguments.length == 3) {
@@ -83,8 +87,8 @@ function Tree(Model, config) {
             callback = arguments[1];
         }
         var tasks = {
-            child : locateNode(node),
-            parent : locateNode(newParent)
+            child: locateNode(node),
+            parent: locateNode(newParent)
         };
 
         return Promise.props(tasks)
@@ -96,14 +100,14 @@ function Tree(Model, config) {
             })
             .then(function (results) {
                 //find the children
-                return Model.find({where : {ancestors : results.child.id}})
+                return Model.find({where: {ancestors: results.child.id}})
                     .then(function (children) {
-                        if (children.length == 0){
+                        if (children.length == 0) {
                             return results;
                         }
 
                         var tasks = [];
-                        lo.forEach(children,function (child) {
+                        lo.forEach(children, function (child) {
                             child.ancestors = results.child.ancestors;
                             child.ancestors.push(results.child.id);
                             tasks.push(child.save());
@@ -139,19 +143,19 @@ function Tree(Model, config) {
             .then(function (nodeToDelete) {
                 var myId = nodeToDelete.id;
                 //find all children that belong to this node
-                return Model.find({where : {ancestors : myId}})
+                return Model.find({where: {ancestors: myId}})
                     .then(orphanChildren)
-                    .then(deleteNode.bind(null,myId))
+                    .then(deleteNode.bind(null, myId))
                     .then(function () {
-                        if (typeof callback == 'function'){
-                            callback(null,true);
+                        if (typeof callback == 'function') {
+                            callback(null, true);
                         }
 
                         return true;
                     })
             })
             .catch(function (err) {
-                if (typeof callback == 'function'){
+                if (typeof callback == 'function') {
                     callback(err);
                 }
 
@@ -161,9 +165,9 @@ function Tree(Model, config) {
         function orphanChildren(children) {
             var tasks = [];
 
-            for (var i in children){
+            for (var i in children) {
                 tasks.push((function (child) {
-                    if (options.withChildren){
+                    if (options.withChildren) {
                         return Model.destroyById(child.id);
                     }
 
@@ -177,14 +181,140 @@ function Tree(Model, config) {
         }
     };
 
+    /**
+     * Grab a tree as an array (maybe coming from a frontend) and format it correctly
+     * Assume (and hope) that the tree is NOT a loopback model
+     * @param {array} tree
+     * @param {object} options
+     * @param {function} callback
+     */
+    Model.saveJsonTree = function (tree, options, callback) {
+        if (arguments.length == 3 && typeof arguments[1] == 'object') {
+            callback = arguments[2];
+        } else if (arguments.length == 3) {
+            callback = arguments[2];
+            options = arguments[1] = {};
+        } else if (arguments.length == 2 && typeof arguments[1] == 'function') {
+            callback = arguments[1];
+        } else if (arguments.length == 1 || arguments.length == 0) {
+            options = {};
+        }
+        //flatten the tree
+        if (!options) {
+            options = {};
+        }
+        var flat = walk(tree),
+            tasks = [];
+
+        if (options.prependRoot) {
+            return locateNode(options.prependRoot)
+                .then(function (rootNode) {
+                    options.prependRoot = rootNode;
+                    return process(flat,options).then(function (result) {
+                        if (typeof callback == 'function'){
+                            callback(null,result);
+                        }
+                    });
+                });
+        }
+
+        return process(flat,options).then(function (result) {
+            if (typeof callback == 'function'){
+                callback(null,result);
+            }
+        });
+
+        function process(flat, options) {
+            for (var i in flat) {
+                //now clean it up a bit
+                delete flat[i].children;
+                //save it
+                tasks.push(saveNode(flat[i], options));
+            }
+
+            return Promise.all(tasks).then(function () {
+                return flat;
+            })
+                .catch(function (err) {
+                    console.log(err)
+                });
+        }
+
+        function walk(nodes, level, parent, flat) {
+            if (!flat) {
+                flat = [];
+            }
+
+            if (!level) {
+                level = 0;
+            }
+
+            if (typeof parent == 'undefined') {
+                parent = null;
+            }
+
+            for (var i in nodes) {
+                nodes[i].ancestors = [];
+
+                if (parent) {
+                    nodes[i].parent = parent.id;
+
+                    for (var j in parent.ancestors) {
+                        nodes[i].ancestors.push(parent.ancestors[j]);
+                    }
+                    nodes[i].ancestors.push(parent.id);
+                    nodes[i].orderBy = i;
+                }
+
+                flat.push(nodes[i]);
+
+                if (nodes[i].children) {
+                    walk(nodes[i].children, level + 1, nodes[i], flat);
+                }
+            }
+
+            return flat;
+        }
+
+        function saveNode(node, options) {
+            if (!node.id) {
+                return Promise.reject('no id');
+            }
+
+            //first find the actual item in the DB
+            Model.findById(node.id)
+                .then(function (item) {
+                    item.ancestors = [];
+                    //use this when your tree only came in a partial form
+                    if (options.prependRoot) {
+                        for (var k in options.prependRoot.ancestors) {
+                            item.ancestors.push(options.prependRoot.ancestors[k]);
+                        }
+                        item.ancestors.push(options.prependRoot.id);
+                    }
+
+                    item.parent = (_this.toObjectID) ? _this.toObjectID(node.parent) : node.parent;
+                    for (var j in node.ancestors) {
+                        item.ancestors.push((_this.toObjectID) ?
+                            _this.toObjectID(node.ancestors[j]) : node.ancestors[j]);
+                    }
+
+                    item.orderBy = node.orderBy;
+
+
+                    return item.save();
+                });
+        }
+    };
+
     function locateNode(node) {
 
         var where = {};
         if (typeof node == 'string') {//Hoping on an id
             where.id = node;
         }
-        else if (typeof node == 'undefined' ||(typeof node == 'object' && lo.isEmpty(node))){
-            return Promise.resolve({id : []});
+        else if (typeof node == 'undefined' || (typeof node == 'object' && lo.isEmpty(node))) {
+            return Promise.resolve({id: []});
         }
         else if (typeof node.id != 'undefined') {//this is the actual node model
             return Promise.resolve(node);
@@ -296,7 +426,7 @@ function Tree(Model, config) {
      });*/
 
     /*    Model.observe('after delete', function event(ctx, next) {
-    //orphan children cause the parent is gone
+     //orphan children cause the parent is gone
      //add ancestors + parent if not there
      if (ctx.instance) { //update
      if (ctx.instance.id) {
@@ -332,7 +462,7 @@ function Tree(Model, config) {
             path: '/asTree',
             verb: 'get'
         },
-        description : "Returns a tree for this model"
+        description: "Returns a tree for this model"
     });
 
     Model.remoteMethod('addNode', {
@@ -361,7 +491,7 @@ function Tree(Model, config) {
             path: '/addNode',
             verb: 'put'
         },
-        description : "Add a node to the tree model"
+        description: "Add a node to the tree model"
     });
 
     Model.remoteMethod('moveNode', {
@@ -390,7 +520,7 @@ function Tree(Model, config) {
             path: '/moveNode',
             verb: 'post'
         },
-        description : "Move a tree node"
+        description: "Move a tree node"
     });
 
     Model.remoteMethod('deleteNode', {
@@ -419,7 +549,36 @@ function Tree(Model, config) {
             path: '/deleteNode',
             verb: 'delete'
         },
-        description : "Delete a tree node"
+        description: "Delete a tree node"
+    });
+
+    Model.remoteMethod('saveJsonTree', {
+        accepts: [{
+            arg: 'tree',
+            type: 'object',
+            required: true,
+            http: {
+                source: 'query'
+            }
+        },
+            {
+                arg: 'options',
+                type: 'object',
+                required: false,
+                http: {
+                    source: 'query'
+                }
+            }],
+        returns: {
+            arg: 'result',
+            type: 'string',
+            root: true
+        },
+        http: {
+            path: '/saveJsonTree',
+            verb: 'post'
+        },
+        description: "Save a json tree"
     });
 }
 
