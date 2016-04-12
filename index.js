@@ -7,7 +7,7 @@ function Tree(Model, config) {
     _this.toObjectID = DS.ObjectID || null;
 
     Model.defineProperty('ancestors', {type: [{type: Object}], required: true});
-    Model.defineProperty('parent', {type: "object", required: false});
+    Model.defineProperty('parent', {type: Object, required: false});
     Model.defineProperty('children', {type: [{type: Object}], required: false});
     Model.defineProperty('depth', {type: Number, required: false});
     Model.defineProperty('orderBy', {type: Number, required: false});
@@ -420,15 +420,19 @@ function Tree(Model, config) {
         return ancestors
     }
 
-    /*    Model.observe('before save', function event(ctx, next) {
-     //add ancestors + parent if not there
-     if (ctx.instance) { //update
-     if (ctx.instance.id) {
-
-     }
-     }
-     //create
-     });*/
+    Model.observe('before save', function event(ctx, next) {
+        var DS = Model.getDataSource();
+        //convert plain parent and ancestor strings to ObjectId's
+        if (ctx.data) {
+            ctx.data.parent = DS.ObjectID(ctx.data.parent);
+            if (lo.isArray(ctx.data.ancestors)){
+                for (var i in ctx.data.ancestors){
+                    ctx.data.ancestors[i] = DS.ObjectID(ctx.data.ancestors[i]);
+                }
+            }
+        }
+        next();
+    });
 
     /*    Model.observe('after delete', function event(ctx, next) {
      //orphan children cause the parent is gone
