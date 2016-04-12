@@ -58,7 +58,6 @@ function Tree(Model, config) {
     };
 
     Model.addNode = function (parent, node, callback) {
-
         return locateNode(parent)
             .then(function (Parent) {
                 return create(node, Parent).then(function (res) {
@@ -308,7 +307,6 @@ function Tree(Model, config) {
     };
 
     function locateNode(node) {
-
         var where = {};
         if (typeof node == 'string') {//Hoping on an id
             where.id = node;
@@ -316,9 +314,12 @@ function Tree(Model, config) {
         else if (typeof node == 'undefined' || (typeof node == 'object' && lo.isEmpty(node))) {
             return Promise.resolve({id: []});
         }
-        else if (typeof node.id != 'undefined') {//this is the actual node model
+        else if (typeof node.id == 'object') {//this is the actual node model
             return Promise.resolve(node);
         } else if (typeof node === 'object' && typeof node.id == 'undefined') {//this is a query
+            where = node;
+        }
+        else if (typeof node === 'object' && typeof node.id != 'undefined' && typeof node.id == 'string') {//this is a query by ID
             where = node;
         }
 
@@ -408,6 +409,7 @@ function Tree(Model, config) {
     function createAncestorsArray(Parent) {
         var ancestors = [];
         //add existing ancestors first
+
         if (Parent.ancestors) {
             for (var i in Parent.ancestors) {
                 if (typeof Parent.ancestors[i] == 'object') {
@@ -422,15 +424,22 @@ function Tree(Model, config) {
 
     Model.observe('before save', function event(ctx, next) {
         var DS = Model.getDataSource();
+        var obj = (ctx.data) ? 'data' : 'instance';
         //convert plain parent and ancestor strings to ObjectId's
-        if (ctx.data) {
-            ctx.data.parent = DS.ObjectID(ctx.data.parent);
-            if (lo.isArray(ctx.data.ancestors)){
-                for (var i in ctx.data.ancestors){
-                    ctx.data.ancestors[i] = DS.ObjectID(ctx.data.ancestors[i]);
-                }
+        if (ctx[obj]) {
+            ctx[obj].parent = (ctx[obj].parent.toString) ? DS.ObjectID(ctx[obj].parent.toString()) : DS.ObjectID(ctx[obj].parent);
+            if (lo.isArray(ctx[obj].ancestors)){
+                lo.forEach(ctx[obj].ancestors,function (ancestor,index) {
+                    if (typeof ancestor.toObject != 'undefined'){
+                        return;
+                    }
+                    ctx[obj].ancestors[index] = (ancestor.toString)
+                        ? DS.ObjectID(ancestor.toString())
+                        : DS.ObjectID(ancestor);
+                });
             }
         }
+
         next();
     });
 
@@ -480,7 +489,7 @@ function Tree(Model, config) {
             type: 'object',
             required: true,
             http: {
-                source: 'query'
+                source: 'form'
             }
         },
             {
@@ -488,7 +497,7 @@ function Tree(Model, config) {
                 type: 'object',
                 required: true,
                 http: {
-                    source: 'query'
+                    source: 'form'
                 }
             }],
         returns: {
