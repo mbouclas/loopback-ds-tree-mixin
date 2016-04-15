@@ -427,7 +427,7 @@ function Tree(Model, config) {
         var obj = (ctx.data) ? 'data' : 'instance';
         //convert plain parent and ancestor strings to ObjectId's
         if (ctx[obj]) {
-            ctx[obj].parent = (ctx[obj].parent.toString) ? DS.ObjectID(ctx[obj].parent.toString()) : DS.ObjectID(ctx[obj].parent);
+            ctx[obj].parent = (typeof ctx[obj].parent.toString != 'undefined' && ctx[obj].parent.toString) ? DS.ObjectID(ctx[obj].parent.toString()) : DS.ObjectID(ctx[obj].parent);
             if (lo.isArray(ctx[obj].ancestors)){
                 lo.forEach(ctx[obj].ancestors,function (ancestor,index) {
                     if (typeof ancestor.toObject != 'undefined'){
