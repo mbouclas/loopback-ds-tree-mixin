@@ -20,14 +20,14 @@ function Tree(Model, config) {
      * @returns {*}
      */
     Model.asTree = function (parent, options, callback) {
-        if (arguments.length == 3 && typeof arguments[1] == 'object') {
+        if (arguments.length === 3 && typeof arguments[1] === 'object') {
             callback = arguments[2];
-        } else if (arguments.length == 3) {
+        } else if (arguments.length === 3) {
             callback = arguments[2];
             options = arguments[1] = {};
-        } else if (arguments.length == 2 && typeof arguments[1] == 'function') {
+        } else if (arguments.length === 2 && typeof arguments[1] === 'function') {
             callback = arguments[1];
-        } else if (arguments.length == 1 || arguments.length == 0) {
+        } else if (arguments.length === 1 || arguments.length === 0) {
             options = {};
         }
 
@@ -40,14 +40,14 @@ function Tree(Model, config) {
 
                         if (options.withParent) {
                             Parent.children = tree;
-                            if (typeof callback == 'function') {
+                            if (typeof callback === 'function') {
                                 callback(null, {result: tree});
                             }
 
                             return Parent;
                         }
 
-                        if (typeof callback == 'function') {
+                        if (typeof callback === 'function') {
                             callback(null, {result: tree});
                         }
 
@@ -58,10 +58,12 @@ function Tree(Model, config) {
     };
 
     Model.addNode = function (parent, node, callback) {
+        var _this = this;
         return locateNode(parent)
             .then(function (Parent) {
                 return create(node, Parent).then(function (res) {
-                    if (typeof callback == 'function') {
+                    _this.app.emit('lbTree.add.success', res);
+                    if (typeof callback === 'function') {
                         callback(null, res);
                     }
 
@@ -77,18 +79,20 @@ function Tree(Model, config) {
          * 3. attach node to the parent
          * 4. re-arrange the ancestors for the node's children
          * */
-        if (arguments.length == 3 && typeof arguments[1] == 'object') {
+        if (arguments.length === 3 && typeof arguments[1] === 'object') {
             callback = arguments[2];
-        } else if (arguments.length == 3) {
+        } else if (arguments.length === 3) {
             callback = arguments[2];
             options = arguments[1] = {};
-        } else if (arguments.length == 2) {
+        } else if (arguments.length === 2) {
             callback = arguments[1];
         }
         var tasks = {
             child: locateNode(node),
             parent: locateNode(newParent)
         };
+
+        var _this = this;
 
         return Promise.props(tasks)
             .then(function (results) {
@@ -101,9 +105,10 @@ function Tree(Model, config) {
                 //find the children
                 return Model.find({where: {ancestors: results.child.id}})
                     .then(function (children) {
-                        if (children.length == 0) {
+                        if (children.length === 0) {
                             return results;
                         }
+                        _this.app.emit('lbTree.move.childrenFound', children);
 
                         var tasks = [];
                         lo.forEach(children, function (child) {
@@ -114,22 +119,28 @@ function Tree(Model, config) {
 
                         return Promise.all(tasks)
                             .then(function () {
+                                _this.app.emit('lbTree.move.parent', results);
                                 return results;
                             });
                     });
             })
             .then(function (results) {
-                return results.child.save();
+                return results.child
+                    .save()
+                    .then(function (updatedItem) {
+                        _this.app.emit('lbTree.move.newPath', updatedItem);
+                        return updatedItem;
+                    });
             });
     };
 
     Model.deleteNode = function (node, options, callback) {
-        if (arguments.length == 3 && typeof arguments[1] == 'object') {
+        if (arguments.length === 3 && typeof arguments[1] === 'object') {
             callback = arguments[2];
-        } else if (arguments.length == 3) {
+        } else if (arguments.length === 3) {
             callback = arguments[2];
             options = arguments[1] = {};
-        } else if (arguments.length == 2) {
+        } else if (arguments.length === 2) {
             callback = arguments[1];
         }
         /*
@@ -137,7 +148,7 @@ function Tree(Model, config) {
          1. Before deleting the node, we need to orphan any children it might have
          2. If the option deleteWithChildren is provided then delete everything
          */
-
+        var _this = this;
         return locateNode(node)
             .then(function (nodeToDelete) {
                 var myId = nodeToDelete.id;
@@ -146,7 +157,8 @@ function Tree(Model, config) {
                     .then(orphanChildren)
                     .then(deleteNode.bind(null, myId))
                     .then(function () {
-                        if (typeof callback == 'function') {
+                        if (typeof callback === 'function') {
+                            _this.app.emit('lbTree.delete', {success : true});
                             callback(null, true);
                         }
 
@@ -154,7 +166,8 @@ function Tree(Model, config) {
                     })
             })
             .catch(function (err) {
-                if (typeof callback == 'function') {
+                if (typeof callback === 'function') {
+                    _this.app.emit('lbTree.delete', {success : false});
                     callback(err);
                 }
 
@@ -188,14 +201,14 @@ function Tree(Model, config) {
      * @param {function} callback
      */
     Model.saveJsonTree = function (tree, options, callback) {
-        if (arguments.length == 3 && typeof arguments[1] == 'object') {
+        if (arguments.length === 3 && typeof arguments[1] === 'object') {
             callback = arguments[2];
-        } else if (arguments.length == 3) {
+        } else if (arguments.length === 3) {
             callback = arguments[2];
             options = arguments[1] = {};
-        } else if (arguments.length == 2 && typeof arguments[1] == 'function') {
+        } else if (arguments.length === 2 && typeof arguments[1] === 'function') {
             callback = arguments[1];
-        } else if (arguments.length == 1 || arguments.length == 0) {
+        } else if (arguments.length === 1 || arguments.length === 0) {
             options = {};
         }
         //flatten the tree
@@ -203,14 +216,15 @@ function Tree(Model, config) {
             options = {};
         }
         var flat = walk(tree),
-            tasks = [];
+            tasks = [],
+            _this = this;
 
         if (options.prependRoot) {
             return locateNode(options.prependRoot)
                 .then(function (rootNode) {
                     options.prependRoot = rootNode;
                     return process(flat,options).then(function (result) {
-                        if (typeof callback == 'function'){
+                        if (typeof callback === 'function'){
                             callback(null,result);
                         }
                     });
@@ -218,7 +232,7 @@ function Tree(Model, config) {
         }
 
         return process(flat,options).then(function (result) {
-            if (typeof callback == 'function'){
+            if (typeof callback === 'function'){
                 callback(null,result);
             }
         });
@@ -248,7 +262,7 @@ function Tree(Model, config) {
                 level = 0;
             }
 
-            if (typeof parent == 'undefined') {
+            if (typeof parent === 'undefined') {
                 parent = null;
             }
 
@@ -301,25 +315,29 @@ function Tree(Model, config) {
                     item.orderBy = node.orderBy;
 
 
-                    return item.save();
+                    return item.save()
+                        .then(function (result) {
+                            _this.app.emit('lbTree.saveJsTree', result);
+                            return result;
+                        });
                 });
         }
     };
 
     function locateNode(node) {
         var where = {};
-        if (typeof node == 'string') {//Hoping on an id
+        if (typeof node === 'string') {//Hoping on an id
             where.id = node;
         }
-        else if (typeof node == 'undefined' || (typeof node == 'object' && lo.isEmpty(node))) {
+        else if (typeof node === 'undefined' || (typeof node === 'object' && lo.isEmpty(node))) {
             return Promise.resolve({id: []});
         }
-        else if (typeof node.id == 'object') {//this is the actual node model
+        else if (typeof node.id === 'object') {//this is the actual node model
             return Promise.resolve(node);
-        } else if (typeof node === 'object' && typeof node.id == 'undefined') {//this is a query
+        } else if (typeof node === 'object' && typeof node.id === 'undefined') {//this is a query
             where = node;
         }
-        else if (typeof node === 'object' && typeof node.id != 'undefined' && typeof node.id == 'string') {//this is a query by ID
+        else if (typeof node === 'object' && typeof node.id !== 'undefined' && typeof node.id === 'string') {//this is a query by ID
             where = node;
         }
 
@@ -334,7 +352,7 @@ function Tree(Model, config) {
     }
 
     function toTree(docs, options) {
-        if (typeof options == 'undefined') {
+        if (typeof options === 'undefined') {
             options = {};
         }
 
@@ -358,7 +376,7 @@ function Tree(Model, config) {
         }
 
         //this is not a valid tree
-        if (treeDepth.length == 0) {
+        if (treeDepth.length === 0) {
             return docs;
         }
 
@@ -370,7 +388,7 @@ function Tree(Model, config) {
         for (var i = 0; (maxDepth) >= i; i++) {
             var found = lo.filter(tree, {depth: i});
 
-            if ((i) == minDepth) {
+            if ((i) === minDepth) {
                 for (var a in found) {
                     found[a].children = [];
                     newTree.push(found[a]);
@@ -381,7 +399,7 @@ function Tree(Model, config) {
             for (var a in found) {
                 var item = lo.find(tree, {id: found[a].parent});
                 //format this item, add - remove - change properties
-                if (typeof options.formatter == 'function') {
+                if (typeof options.formatter === 'function') {
                     item = options.formatter(item);
                 }
 
@@ -412,7 +430,7 @@ function Tree(Model, config) {
 
         if (Parent.ancestors) {
             for (var i in Parent.ancestors) {
-                if (typeof Parent.ancestors[i] == 'object') {
+                if (typeof Parent.ancestors[i] === 'object') {
                     ancestors.push(Parent.ancestors[i]);
                 }
             }
@@ -432,10 +450,10 @@ function Tree(Model, config) {
             }
 
             //convert plain parent and ancestor strings to ObjectId's
-            ctx[obj].parent = (typeof ctx[obj].parent.toString != 'undefined' && ctx[obj].parent.toString) ? DS.ObjectID(ctx[obj].parent.toString()) : DS.ObjectID(ctx[obj].parent);
+            ctx[obj].parent = (typeof ctx[obj].parent.toString !== 'undefined' && ctx[obj].parent.toString) ? DS.ObjectID(ctx[obj].parent.toString()) : DS.ObjectID(ctx[obj].parent);
             if (lo.isArray(ctx[obj].ancestors)){
                 lo.forEach(ctx[obj].ancestors,function (ancestor,index) {
-                    if (typeof ancestor.toObject != 'undefined'){
+                    if (typeof ancestor.toObject !== 'undefined'){
                         return;
                     }
                     ctx[obj].ancestors[index] = (ancestor.toString)

@@ -291,3 +291,12 @@ Category.saveJsonTree(req.body.tree,{prependRoot : req.body.prependRoot || false
 The mixin adds a `/saveJsonTree` end point to your model. It takes 2 parameters,
 the JSON tree (valid Array tree) and the options object.
 Only the first parameter is required.
+
+# Events
+The mixin emits events on the loopback Event bus for certain operations.
+- `lbTree.add.success` when a node was added. Returns the new node 
+* `lbTree.move.childrenFound` During the move when we have found all the children. Return the children
+* `lbTree.move.parent` During the move we have the parent. Returns the parent
+* `lbTree.move.newPath` The new path after the move ended
+* `lbTree.delete` Node deleted. Returns {success : true/false}
+* `lbTree.saveJsTree` When a JSTree operations is done. Returns the tree
