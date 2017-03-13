@@ -6,7 +6,7 @@ function Tree(Model, config) {
     var DS = Model.getDataSource();
     _this.toObjectID = DS.ObjectID || null;
 
-    Model.defineProperty('ancestors', {type: [{type: Object}], required: true});
+    Model.defineProperty('ancestors', {type: [{type: Object}], required: false, default : []});
     Model.defineProperty('parent', {type: Object, required: false});
     Model.defineProperty('children', {type: [{type: Object}], required: false});
     Model.defineProperty('depth', {type: Number, required: false});
@@ -425,8 +425,13 @@ function Tree(Model, config) {
     Model.observe('before save', function event(ctx, next) {
         var DS = Model.getDataSource();
         var obj = (ctx.data) ? 'data' : 'instance';
-        //convert plain parent and ancestor strings to ObjectId's
+
         if (ctx[obj]) {
+            if (typeof ctx[obj].parent === 'undefined') {
+                return next();
+            }
+
+            //convert plain parent and ancestor strings to ObjectId's
             ctx[obj].parent = (typeof ctx[obj].parent.toString != 'undefined' && ctx[obj].parent.toString) ? DS.ObjectID(ctx[obj].parent.toString()) : DS.ObjectID(ctx[obj].parent);
             if (lo.isArray(ctx[obj].ancestors)){
                 lo.forEach(ctx[obj].ancestors,function (ancestor,index) {
