@@ -300,3 +300,14 @@ The mixin emits events on the loopback Event bus for certain operations.
 * `lbTree.move.newPath` The new path after the move ended
 * `lbTree.delete` Node deleted. Returns {success : true/false}
 * `lbTree.saveJsTree` When a JSTree operations is done. Returns the tree
+
+```javascript
+var Category = app.models.Category;
+
+Category.on('lbTree.move.childrenFound',function(children){
+    console.log("childrenFound",children);
+});
+Category.on('lbTree.move.parent',function(children){
+    console.log("parent",children);
+});
+```
