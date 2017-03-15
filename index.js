@@ -11,7 +11,30 @@ function Tree(Model, config) {
     Model.defineProperty('children', {type: [{type: Object}], required: false});
     Model.defineProperty('depth', {type: Number, required: false});
     Model.defineProperty('orderBy', {type: Number, required: false});
-
+    /**
+     * Return all the trees from the database table
+     * @param {object} options
+     * @param {function} callback
+     * @returns {*}
+     */
+    Model.allTrees=function (callback) {
+        Model.find({
+            where: {
+                parent: {
+                    exists: false
+                }
+            }
+        },function (err, rootNodes) {
+            Promise.all(rootNodes.map(function (rootNode) {
+                return Model.asTree(rootNode,{withParent:true});
+            })).then(function (trees) {
+                if (typeof callback === 'function') {
+                    callback(null, {result: trees});
+                }
+                return trees;
+            }).catch(handleErr);
+        });
+    };
     /**
      * Create a tree from the database table
      * @param {object} parent
@@ -472,7 +495,20 @@ function Tree(Model, config) {
      }
      //create
      });*/
-
+    Model.remoteMethod('allTrees', {
+        accepts: [
+            ],
+        returns: {
+            arg: 'result',
+            type: 'object',
+            root: true
+        },
+        http: {
+            path: '/allTrees',
+            verb: 'get'
+        },
+        description: "Returns all the trees for this model"
+    });
     Model.remoteMethod('asTree', {
         accepts: [{
             arg: 'parent',
