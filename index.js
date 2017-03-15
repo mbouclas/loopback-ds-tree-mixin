@@ -35,22 +35,18 @@ function Tree(Model, config) {
             .then(function (Parent) {
                 return Model.find({where: {ancestors: Parent.id}, order: 'orderBy ASC'})
                     .then(function (docs) {
-
                         var tree = toTree(docs, options);
-
                         if (options.withParent) {
                             Parent.children = tree;
                             if (typeof callback === 'function') {
-                                callback(null, {result: tree});
+                                callback(null, {result: Parent});
                             }
-
                             return Parent;
                         }
 
                         if (typeof callback === 'function') {
                             callback(null, {result: tree});
                         }
-
                         return tree;
                     });
             })
