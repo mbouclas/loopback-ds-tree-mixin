@@ -92,7 +92,6 @@ function Tree(Model, config) {
     };
 
     Model.moveNode = function (node, newParent, callback) {
-        console.log("AAAAAAAAAAAAAAAA");
         /*
          * 1. locate the node
          * 2. locate the parent
@@ -116,7 +115,9 @@ function Tree(Model, config) {
         var moveEventData={};
         return Promise.props(tasks)
             .then(function (results) {
-                moveEventData.oldParent=results.child.parent;
+                if (results.child){
+                    moveEventData.oldParent=results.child.parent;
+                }
                 moveEventData.node=results.child;
                 moveEventData.newParent=results.parent.id;
                 Model.emit('lbTree.move.before', moveEventData);
