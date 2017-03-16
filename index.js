@@ -81,7 +81,7 @@ function Tree(Model, config) {
         return locateNode(parent)
             .then(function (Parent) {
                 return create(node, Parent).then(function (res) {
-                    _this.app.emit('lbTree.add.success', res);
+                    Model.emit('lbTree.add.success', res);
                     if (typeof callback === 'function') {
                         callback(null, res);
                     }
@@ -127,7 +127,7 @@ function Tree(Model, config) {
                         if (children.length === 0) {
                             return results;
                         }
-                        _this.app.emit('lbTree.move.childrenFound', children);
+                        Model.emit('lbTree.move.childrenFound', children);
 
                         var tasks = [];
                         lo.forEach(children, function (child) {
@@ -138,7 +138,7 @@ function Tree(Model, config) {
 
                         return Promise.all(tasks)
                             .then(function () {
-                                _this.app.emit('lbTree.move.parent', results);
+                                Model.emit('lbTree.move.parent', results);
                                 return results;
                             });
                     });
@@ -147,7 +147,7 @@ function Tree(Model, config) {
                 return results.child
                     .save()
                     .then(function (updatedItem) {
-                        _this.app.emit('lbTree.move.newPath', updatedItem);
+                        Model.emit('lbTree.move.newPath', updatedItem);
                         return updatedItem;
                     });
             });
@@ -177,7 +177,7 @@ function Tree(Model, config) {
                     .then(deleteNode.bind(null, myId))
                     .then(function () {
                         if (typeof callback === 'function') {
-                            _this.app.emit('lbTree.delete', {success : true});
+                            Model.emit('lbTree.delete', {success : true});
                             callback(null, true);
                         }
 
@@ -186,7 +186,7 @@ function Tree(Model, config) {
             })
             .catch(function (err) {
                 if (typeof callback === 'function') {
-                    _this.app.emit('lbTree.delete', {success : false});
+                    Model.emit('lbTree.delete', {success : false});
                     callback(err);
                 }
 
@@ -336,7 +336,7 @@ function Tree(Model, config) {
 
                     return item.save()
                         .then(function (result) {
-                            _this.app.emit('lbTree.saveJsTree', result);
+                            Model.emit('lbTree.saveJsTree', result);
                             return result;
                         });
                 });
