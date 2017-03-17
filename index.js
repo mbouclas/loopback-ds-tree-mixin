@@ -27,7 +27,7 @@ function Tree(Model, config) {
         filter.where.parent={exists:false};
         Model.find(filter,function (err, rootNodes) {
             Promise.all(rootNodes.map(function (rootNode) {
-                return Model.asTree(rootNode,{withParent:true});
+                return Model.asTree(rootNode,{withParent:true,order:filter.order});
             })).then(function (trees) {
                 if (typeof callback === 'function') {
                     callback(null, {result: trees});
@@ -54,10 +54,14 @@ function Tree(Model, config) {
         } else if (arguments.length === 1 || arguments.length === 0) {
             options = {};
         }
+        if(!options.order){
+            options.order='orderBy ASC';
+        }
+
 
         return locateNode(parent)
             .then(function (Parent) {
-                return Model.find({where: {ancestors: Parent.id}, order: 'orderBy ASC'})
+                return Model.find({where: {ancestors: Parent.id}, order: options.order})
                     .then(function (docs) {
                         var tree = toTree(docs, options);
                         if (options.withParent) {
