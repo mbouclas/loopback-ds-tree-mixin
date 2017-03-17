@@ -13,18 +13,19 @@ function Tree(Model, config) {
     Model.defineProperty('orderBy', {type: Number, required: false});
     /**
      * Return all the trees from the database table
-     * @param {object} options
+     * @param filter
      * @param {function} callback
      * @returns {*}
      */
-    Model.allTrees=function (callback) {
-        Model.find({
-            where: {
-                parent: {
-                    exists: false
-                }
-            }
-        },function (err, rootNodes) {
+    Model.allTrees=function (filter,callback) {
+        if (typeof filter!=="object"){
+            filter={};
+        }
+        if (typeof filter.where !=='object'){
+            filter.where={};
+        }
+        filter.where.parent={exists:false};
+        Model.find(filter,function (err, rootNodes) {
             Promise.all(rootNodes.map(function (rootNode) {
                 return Model.asTree(rootNode,{withParent:true});
             })).then(function (trees) {
@@ -497,6 +498,8 @@ function Tree(Model, config) {
      });*/
     Model.remoteMethod('allTrees', {
         accepts: [
+            {arg: 'filter', type: 'object', description:
+                'Filter defining fields, where, include, order, offset, and limit on the roots node'},
             ],
         returns: {
             arg: 'result',
