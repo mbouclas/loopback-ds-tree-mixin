@@ -13,20 +13,21 @@ function Tree(Model, config) {
     Model.defineProperty('orderBy', {type: Number, required: false});
     /**
      * Return all the trees from the database table
-     * @param {object} options
+     * @param filter
      * @param {function} callback
      * @returns {*}
      */
-    Model.allTrees=function (callback) {
-        Model.find({
-            where: {
-                parent: {
-                    exists: false
-                }
-            }
-        },function (err, rootNodes) {
+    Model.allTrees=function (filter,callback) {
+        if (typeof filter!=="object"){
+            filter={};
+        }
+        if (typeof filter.where !=='object'){
+            filter.where={};
+        }
+        filter.where.parent={exists:false};
+        Model.find(filter,function (err, rootNodes) {
             Promise.all(rootNodes.map(function (rootNode) {
-                return Model.asTree(rootNode,{withParent:true});
+                return Model.asTree(rootNode,{withParent:true,order:filter.order});
             })).then(function (trees) {
                 if (typeof callback === 'function') {
                     callback(null, {result: trees});
@@ -53,10 +54,14 @@ function Tree(Model, config) {
         } else if (arguments.length === 1 || arguments.length === 0) {
             options = {};
         }
+        if(!options.order){
+            options.order='orderBy ASC';
+        }
+
 
         return locateNode(parent)
             .then(function (Parent) {
-                return Model.find({where: {ancestors: Parent.id}, order: 'orderBy ASC'})
+                return Model.find({where: {ancestors: Parent.id}, order: options.order})
                     .then(function (docs) {
                         var tree = toTree(docs, options);
                         if (options.withParent) {
@@ -115,9 +120,13 @@ function Tree(Model, config) {
 
         return Promise.props(tasks)
             .then(function (results) {
-                results.child.parent = results.parent.id;
-                results.child.ancestors = results.parent.ancestors;
-                results.child.ancestors.push(results.parent.id);
+                console.log(results.parent);
+                if(results.parent){
+                    results.child.parent = results.parent.id;
+                }else{
+                    delete results.child.parent;
+                }
+                results.child.ancestors=createAncestorsArray(results.parent);
                 return results;
             })
             .then(function (results) {
@@ -203,7 +212,7 @@ function Tree(Model, config) {
                     }
 
                     child.ancestors = [];//orphan it
-                    child.parent = null;
+                    child.parent = undefined;
                     return child.save();
                 })(children[i]));
             }
@@ -349,7 +358,7 @@ function Tree(Model, config) {
             where.id = node;
         }
         else if (typeof node === 'undefined' || (typeof node === 'object' && lo.isEmpty(node))) {
-            return Promise.resolve({id: []});
+            return Promise.resolve({});
         }
         else if (typeof node.id === 'object') {//this is the actual node model
             return Promise.resolve(node);
@@ -454,15 +463,16 @@ function Tree(Model, config) {
                 }
             }
         }
-
-        ancestors.push(Parent.id);
+        if(Parent.id){
+            ancestors.push(Parent.id);
+        }
         return ancestors
     }
 
     Model.observe('before save', function event(ctx, next) {
         var DS = Model.getDataSource();
         var obj = (ctx.data) ? 'data' : 'instance';
-
+        console.log("bef save",ctx[obj]);
         if (ctx[obj]) {
             if (typeof ctx[obj].parent === 'undefined') {
                 return next();
@@ -497,7 +507,9 @@ function Tree(Model, config) {
      });*/
     Model.remoteMethod('allTrees', {
         accepts: [
-            ],
+            {arg: 'filter', type: 'object', description:
+                'Filter defining fields, where, include, order, offset, and limit on the roots node'},
+        ],
         returns: {
             arg: 'result',
             type: 'object',
@@ -579,7 +591,7 @@ function Tree(Model, config) {
             {
                 arg: 'parent',
                 type: 'object',
-                required: true,
+                required: false,
                 http: {
                     source: 'query'
                 }
