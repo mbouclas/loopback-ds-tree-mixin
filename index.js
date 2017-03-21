@@ -126,14 +126,16 @@ function Tree(Model, config) {
                 moveEventData.node=results.child;
                 moveEventData.newParent=results.parent.id;
                 Model.emit('lbTree.move.before', moveEventData);
-                results.child.parent = results.parent.id;
-                results.child.ancestors = results.parent.ancestors;
-                results.child.ancestors.push(results.parent.id);
+                if(results.parent){
+                    results.child.parent = results.parent.id;
+                }else{
+                    delete results.child.parent;
+                }
+                results.child.ancestors=createAncestorsArray(results.parent);
                 return results;
             })
             .then(function (results) {
                 //find the children
-                console.log("find the children");
                 return Model.find({where: {ancestors: results.child.id}})
                     .then(function (children) {
                         if (children.length === 0) {
@@ -150,7 +152,6 @@ function Tree(Model, config) {
 
                         return Promise.all(tasks)
                             .then(function () {
-                                console.log("parent");
                                 Model.emit('lbTree.move.parent', results);
                                 return results;
                             });
@@ -217,7 +218,7 @@ function Tree(Model, config) {
                     }
 
                     child.ancestors = [];//orphan it
-                    child.parent = null;
+                    child.parent = undefined;
                     return child.save();
                 })(children[i]));
             }
@@ -363,7 +364,7 @@ function Tree(Model, config) {
             where.id = node;
         }
         else if (typeof node === 'undefined' || (typeof node === 'object' && lo.isEmpty(node))) {
-            return Promise.resolve({id: []});
+            return Promise.resolve({});
         }
         else if (typeof node.id === 'object') {//this is the actual node model
             return Promise.resolve(node);
@@ -468,15 +469,15 @@ function Tree(Model, config) {
                 }
             }
         }
-
-        ancestors.push(Parent.id);
+        if(Parent.id){
+            ancestors.push(Parent.id);
+        }
         return ancestors
     }
 
     Model.observe('before save', function event(ctx, next) {
         var DS = Model.getDataSource();
         var obj = (ctx.data) ? 'data' : 'instance';
-
         if (ctx[obj]) {
             if (typeof ctx[obj].parent === 'undefined') {
                 return next();
@@ -513,7 +514,7 @@ function Tree(Model, config) {
         accepts: [
             {arg: 'filter', type: 'object', description:
                 'Filter defining fields, where, include, order, offset, and limit on the roots node'},
-            ],
+        ],
         returns: {
             arg: 'result',
             type: 'object',
@@ -595,7 +596,7 @@ function Tree(Model, config) {
             {
                 arg: 'parent',
                 type: 'object',
-                required: true,
+                required: false,
                 http: {
                     source: 'query'
                 }
