@@ -117,10 +117,15 @@ function Tree(Model, config) {
         };
 
         var _this = this;
-
+        var moveEventData={};
         return Promise.props(tasks)
             .then(function (results) {
-                console.log(results.parent);
+                if (results.child){
+                    moveEventData.oldParent=results.child.parent;
+                }
+                moveEventData.node=results.child;
+                moveEventData.newParent=results.parent.id;
+                Model.emit('lbTree.move.before', moveEventData);
                 if(results.parent){
                     results.child.parent = results.parent.id;
                 }else{
@@ -157,6 +162,7 @@ function Tree(Model, config) {
                     .save()
                     .then(function (updatedItem) {
                         Model.emit('lbTree.move.newPath', updatedItem);
+                        Model.emit('lbTree.move.after', moveEventData);
                         return updatedItem;
                     });
             });
@@ -472,7 +478,6 @@ function Tree(Model, config) {
     Model.observe('before save', function event(ctx, next) {
         var DS = Model.getDataSource();
         var obj = (ctx.data) ? 'data' : 'instance';
-        console.log("bef save",ctx[obj]);
         if (ctx[obj]) {
             if (typeof ctx[obj].parent === 'undefined') {
                 return next();

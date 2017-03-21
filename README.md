@@ -294,10 +294,12 @@ Only the first parameter is required.
 
 # Events
 The mixin emits events on the loopback Event bus for certain operations.
-- `lbTree.add.success` when a node was added. Returns the new node 
-* `lbTree.move.childrenFound` During the move when we have found all the children. Return the children
-* `lbTree.move.parent` During the move we have the parent. Returns the parent
-* `lbTree.move.newPath` The new path after the move ended
+- `lbTree.add.success` when a node was added. Returns the new node
+* `lbTree.move.before` Just before start the moving operation. Return the previous parent, the new parent and the node.
+* `lbTree.move.after` After the moving operation. Return the previous parent, the new parent and the node.
+* `lbTree.move.childrenFound` During the move when we have found all the children. Return the children.
+* `lbTree.move.parent` During the move we have the parent. Returns the parent.
+* `lbTree.move.newPath` The new path after the move ended. Returns the node.
 * `lbTree.delete` Node deleted. Returns {success : true/false}
 * `lbTree.saveJsTree` When a JSTree operations is done. Returns the tree
 
