@@ -6,14 +6,16 @@
   "keywords": [
     "loopback",
     "Tree",
-    "Ancenstor",
+    "Ancestor",
     "mixin"
   ],
   "author": "Michael Bouclas <mbouclas@gmail.com> (http://net-tomorrow.com/)",
   "license": "MIT",
   "scripts": {
     "watch": "watchify ./admin/cms/index.js -o ./admin/cms-compiled.js -v",
-    "minify": "uglifyjs ./admin/cms-compiled.js --compress --mangle -o ./admin/cms-compiled.min.js"
+    "minify": "uglifyjs ./admin/cms-compiled.js --compress --mangle -o ./admin/cms-compiled.min.js",
+    "test": "mocha",
+    "test-with-coverage": "nyc --reporter=text --reporter=text-summary --reporter=html mocha"
   },
   "homepage": "https://github.com/mbouclas/loopback-ds-tree-mixin",
   "repository": {
@@ -22,6 +24,15 @@
   },
   "dependencies": {
     "bluebird": "^3.3.4",
-    "lodash": "^4.8.2"
+    "lodash": "^4.8.2",
+    "polygoat": "^1.1.4"
+  },
+  "devDependencies": {
+    "loopback": "^3.25.1",
+    "loopback-boot": "^2.28.0",
+    "loopback-connector-mongodb": "^3.9.2",
+    "mocha": "^6.1.0",
+    "nyc": "^13.3.0",
+    "should": "^13.2.3"
   }
 }

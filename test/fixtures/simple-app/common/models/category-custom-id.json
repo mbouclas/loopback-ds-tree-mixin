@@ -1,0 +1,22 @@
+{
+  "name": "CategoryCustomId",
+  "base": "PersistedModel",
+  "description": "Model with custom plain identifier",
+  "strict": true,
+  "options": {
+    "validateUpsert": true
+  },
+  "mixins": {
+    "Tree": true
+  },
+  "properties": {
+    "slug": {
+      "type": "string",
+      "id": true
+    },
+    "name": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "db": {
+    "name": "db",
+    "database": "loopback-ds-tree-mixin",
+    "connector": "mongodb",
+    "useNewUrlParser": true,
+    "prohibitHiddenPropertiesInQuery": false,
+    "maxDepthOfQuery": 20
+  }
+}
