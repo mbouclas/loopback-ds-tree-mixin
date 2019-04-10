@@ -10,8 +10,8 @@ function Tree(Model, config) {
     _this.toObjectID = idType === DS.ObjectID;
 
     Model.defineProperty('parent', {type: idType, required: false});
-    Model.defineProperty('ancestors', {default : []});
-    Model.defineProperty('children', {type: Array, required: false});
+    Model.defineProperty('ancestors', {type: [{type: idType}], default : []});
+    Model.defineProperty('children', {type: [{type: Object}], required: false});
     Model.defineProperty('depth', {type: Number, required: false});
     Model.defineProperty('orderBy', {type: Number, required: false});
 
@@ -202,7 +202,6 @@ function Tree(Model, config) {
          1. Before deleting the node, we need to orphan any children it might have
          2. If the option deleteWithChildren is provided then delete everything
          */
-        var _this = this;
         return pg(function(done){
             locateNode(node)
                 .then(function (nodeToDelete) {
@@ -476,10 +475,6 @@ function Tree(Model, config) {
 
     function deleteNode(nodeID) {
         return Model.destroyById(nodeID);
-    }
-
-    function handleErr(err) {
-        return err;
     }
 
     function createAncestorsArray(Parent) {
