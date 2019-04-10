@@ -1,0 +1,21 @@
+{
+  "name": "Category",
+  "base": "PersistedModel",
+  "description": "Model with ObjectId identifier",
+  "strict": true,
+  "options": {
+    "validateUpsert": true
+  },
+  "mixins": {
+    "Tree": true
+  },
+  "properties": {
+    "slug": {
+      "type": "string",
+      "required": true
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}

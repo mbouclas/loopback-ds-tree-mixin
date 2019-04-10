@@ -313,3 +313,18 @@ Category.on('lbTree.move.parent',function(children){
     console.log("parent",children);
 });
 ```
+
+TESTING
+=============
+
+Install dev dependencies:
+
+```bash
+npm i -D
+```
+
+Run tests:
+
+```bash
+npm test
+```

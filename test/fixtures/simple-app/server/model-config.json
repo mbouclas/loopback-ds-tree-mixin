@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "sources": [
+      "../common/models"
+    ]
+  },
+  "Category": {
+    "dataSource": "db",
+    "public": true
+  },
+  "CategoryCustomId": {
+    "dataSource": "db",
+    "public": true
+  }
+}
